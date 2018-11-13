@@ -36,11 +36,11 @@
     "react-tooltip": "^3.8.4",
     "react-transition-group": "^1.2.1",
     "react-virtualized": "^9.20.1",
+    "react-vis": "^1.11.4",
     "redux": "^3.7.2",
     "redux-devtools-extension": "^2.13.5",
     "redux-thunk": "^2.3.0",
-    "universal-cookie": "^2.2.0",
-    "victory": "^30.5.1"
+    "universal-cookie": "^2.2.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.1.2",

@@ -1,5 +1,6 @@
 import React from 'react';
-import { VictoryChart, VictoryArea, VictoryLine, VictoryScatter, VictoryAxis, VictoryTheme, createContainer, VictoryTooltip, VictoryLegend, Border } from 'victory';
+import PropTypes from 'prop-types';
+import { FlexibleWidthXYPlot as XYPlot, XAxis, YAxis, LineSeries, AreaSeries, MarkSeries, Highlight, DiscreteColorLegend, Crosshair } from 'react-vis';
 
 import { formatDuration, formatNumber } from 'common/format';
 import SPELLS from 'common/SPELLS';
@@ -7,38 +8,112 @@ import SpellLink from 'common/SpellLink';
 import Analyzer from 'parser/core/Analyzer';
 import Tab from 'interface/others/Tab';
 
-import StaggerFabricator from '../core/StaggerFabricator';
+import '../../../../../../node_modules/react-vis/dist/style.css';
 import './StaggerPoolGraph.css';
-
-function rightEdgeFilter(events, resolution=1000, field='timestamp') {
-  const initial = events[0][field];
-  const bucket = event => Math.floor((event[field] - initial)/resolution);
-
-  const reduced = events.reduce(({data, last}, event) => {
-    if(bucket(last) < bucket(event)) {
-      data.push(last);
-      return { data, last: event };
-    }
-    if(bucket(last) === bucket(event)) {
-      return { data, last: event };
-    }
-    throw Error('this should be unreachable');
-  }, {
-    data: [],
-    last: events[0],
-  });
-
-  reduced.data.push(reduced.last);
-  return reduced.data;
-}
+import StaggerFabricator from '../core/StaggerFabricator';
 
 const COLORS = {
   death: 'red',
   purify: '#00ff96',
-  stagger: 'rgba(240, 234, 214)',
+  stagger: 'rgb(240, 234, 214)',
   hp: 'rgb(255, 139, 45)',
   maxHp: 'rgb(183, 76, 75)',
 };
+
+class StaggerGraph extends React.Component {
+  static propTypes = {
+    stagger: PropTypes.array.isRequired,
+    hp: PropTypes.array.isRequired,
+    maxHp: PropTypes.array.isRequired,
+    purifies: PropTypes.array.isRequired,
+    deaths: PropTypes.array.isRequired,
+    startTime: PropTypes.number.isRequired,
+  };
+
+  state = {
+    hover: null,
+    xDomain: null,
+    dragging: false,
+  };
+
+  render() {
+    const {stagger, hp, maxHp, purifies, deaths, startTime} = this.props;
+    const {xDomain} = this.state;
+    return (
+      <XYPlot height={400}
+        className={'graph'}
+        animation xDomain={xDomain && [xDomain.left, xDomain.right]}
+        style={{
+          fill: '#fff',
+          stroke: '#fff',
+        }}>
+        <DiscreteColorLegend
+          orientation="horizontal"
+          strokeWidth={2}
+          items={[
+            { title: 'Stagger', color: COLORS.stagger },
+            { title: 'Purify', color: COLORS.purify },
+            { title: 'Health', color: COLORS.hp },
+            { title: 'Max Health', color: COLORS.maxHp },
+          ]} />
+        <XAxis title="Time" tickFormat={value => formatDuration((value - startTime) / 1000)} />
+        <YAxis title="Health" tickFormat={value => formatNumber(value)} />
+        <AreaSeries
+          data={hp}
+          color={COLORS.hp}
+          style={{strokeWidth: 2, fillOpacity: 0.2}}
+        />
+        <AreaSeries 
+          data={stagger} 
+          color={COLORS.stagger} 
+          style={{strokeWidth: 2, fillOpacity: 0.2}}
+          onNearestX={d => this.setState({hover: d})}
+          onSeriesMouseOut={d => this.setState({hover: null})}
+        />
+        <LineSeries
+          data={maxHp}
+          color={COLORS.maxHp}
+          strokeWidth={2}
+        />
+        {deaths.map(({x}, idx) => (
+          <Crosshair 
+            key={`death-${idx}`} 
+            values={[{x}]} 
+            className="death-line">
+            <React.Fragment />
+          </Crosshair>
+        ))}
+        {!this.state.dragging && this.state.hover && (
+          <Crosshair
+            className="tooltip-crosshair"
+            values={[this.state.hover]}
+            titleFormat={([ v ]) => ({ title: 'Stagger', value: formatNumber(v.y) })}
+            itemsFormat={([ v ]) => {
+              const entries = [
+                { title: 'Health', value: `${formatNumber(v.hp)} / ${formatNumber(v.maxHp)}` },
+              ];
+              const purify = purifies.find(({x}) => Math.abs(x - v.x) < 500);
+              if(purify) {
+                entries.push({ title: 'Purified', value: formatNumber(purify.amount) });
+              }
+              return entries;
+            }}
+          />
+        )}
+        <Highlight
+          enableY={false}
+          onBrushStart={() => this.setState({dragging: true})}
+          onBrushEnd={area => this.setState({xDomain: area, dragging: false})}
+        />
+        <MarkSeries
+          data={purifies}
+          color={COLORS.purify}
+          onValueClick={d => this.setState({xDomain: { left: d.x - 10000, right: d.x + 10000 }})}
+        />
+      </XYPlot>
+    );
+  }
+}
 
 /**
  * A graph of staggered damage (and related quantities) over time.
@@ -59,9 +134,11 @@ class StaggerPoolGraph extends Analyzer {
   _staggerEvents = [];
   _deathEvents = [];
   _purifyEvents = [];
+  _lastHp = 0;
+  _lastMaxHp = 0;
 
   on_addstagger(event) {
-    this._staggerEvents.push(event);
+    this._staggerEvents.push({...event, hitPoints: this._lastHp, maxHitPoints: this._lastMaxHp });
   }
 
   on_removestagger(event) {
@@ -69,11 +146,10 @@ class StaggerPoolGraph extends Analyzer {
       // record the *previous* timestamp for purification. this will
       // make the purifies line up with peaks in the plot, instead of
       // showing up *after* peaks
-      event._lastStaggerChange = this._staggerEvents[this._staggerEvents.length-1].timestamp;
-      this._purifyEvents.push(event);
+      this._purifyEvents.push({...event, previousTimestamp: this._staggerEvents[this._staggerEvents.length - 1].timestamp});
     }
 
-    this._staggerEvents.push(event);
+    this._staggerEvents.push({...event, hitPoints: this._lastHp, maxHitPoints: this._lastMaxHp });
   }
 
   on_toPlayer_death(event) {
@@ -82,157 +158,54 @@ class StaggerPoolGraph extends Analyzer {
 
   on_toPlayer_damage(event) {
     this._hpEvents.push(event);
+    this._lastHp = event.hitPoints ? event.hitPoints : this._lastHp;
+    this._lastMaxHp = event.maxHitPoints ? event.maxHitPoints : this._lastMaxHp;
   }
 
   on_toPlayer_heal(event) {
     this._hpEvents.push(event);
-  }
-
-  formatPlotDuration(x) {
-    const label = formatDuration(Math.floor((x - this.owner.fight.start_time)/1000), 1);
-    return label.substring(0, label.length - 2);
-  }
-
-  get staggerData() {
-    return this._staggerEvents;
-  }
-
-  get hpData() {
-    return rightEdgeFilter(this._hpEvents.filter(ev => !!ev.hitPoints));
-  }
-
-  get maxHpData() {
-    return rightEdgeFilter(this._hpEvents.filter(ev => !!ev.maxHitPoints));
+    this._lastHp = event.hitPoints ? event.hitPoints : this._lastHp;
+    this._lastMaxHp = event.maxHitPoints ? event.maxHitPoints : this._lastMaxHp;
   }
 
   plot() {
-    const LABELS = {
-      'max-hp-line': (event) => `Max HP: ${formatNumber(event.maxHitPoints)}`,
-      'hp-area': (event) => `HP: ${formatNumber(event.hitPoints)}`,
-      'stagger-area': (event) => `Staggered Damage: ${formatNumber(event.newPooledDamage)}`,
-      'purify-scatter': (event) => `Purified ${formatNumber(event.amount)} damage`,
-      'death': () => "Player Died",
-    };
-    const StaggerContainer = createContainer("voronoi", "zoom");
-    const tooltip = (
-      <VictoryTooltip 
-        style={{
-          fill: '#fff',
-        }}
-        flyoutStyle={{
-          fill: 'rgba(10,10,10,0.9)',
-          stroke: 'rgba(25,25,25,0.9)',
-        }}
-      />
-    );
-    const container = (
-      <StaggerContainer 
-        responsive
-        zoomDimension="x" 
-        minimumZoom={{ x: 60000, y: 1 }}
-        labels={(point, index, points) => {
-          return LABELS[point.childName](point);
-        }}
-        labelComponent={tooltip}
-      />
-    );
+    const stagger = this._staggerEvents.map(({timestamp, newPooledDamage, hitPoints, maxHitPoints}) => { 
+      return { 
+        x: timestamp,
+        y: newPooledDamage,
+        hp: hitPoints,
+        maxHp: maxHitPoints,
+      }; 
+    });
 
+    const purifies = this._purifyEvents.map(({previousTimestamp, newPooledDamage, amount}) => ({ x: previousTimestamp, y: newPooledDamage + amount, amount }));
+
+    const hp = this._hpEvents.filter(({hitPoints}) => hitPoints !== undefined)
+      .map(({timestamp, hitPoints}) => {
+        return {
+          x: timestamp,
+          y: hitPoints,
+        };
+      });
+
+    const maxHp = this._hpEvents.filter(({maxHitPoints}) => maxHitPoints !== undefined)
+      .map(({timestamp, maxHitPoints}) => {
+        return {
+          x: timestamp,
+          y: maxHitPoints,
+        };
+      });
+
+    const deaths = this._deathEvents.map(({timestamp}) => ({x: timestamp}));
     return (
-      <div className="graph-container" style={{backgroundColor: 'rgba(10,10,10,0.9)'}}>
-        <VictoryChart theme={VictoryTheme.material}
-          style={{
-            labels: {
-              fontSize: 10,
-            },
-            parent: { 
-              backgroundColor: 'rgba(10,10,10,0.9)',
-            },
-          }}
-          width={1200}
-          height={400}
-          containerComponent={container}
-        >
-          <VictoryLine data={this.maxHpData}
-            name="max-hp-line"
-            x="timestamp"
-            y="maxHitPoints"
-            style={{
-              data: {
-                stroke: COLORS.maxHp,
-              },
-            }}
-          />
-          <VictoryArea data={this.hpData}
-            name="hp-area"
-            x="timestamp"
-            y="hitPoints"
-            style={{
-              data: {
-                fill: COLORS.hp,
-                fillOpacity: 0.2,
-                stroke: COLORS.hp,
-              },
-            }}
-          />
-          <VictoryArea data={this.staggerData}
-            name="stagger-area"
-            x="timestamp" 
-            y="newPooledDamage" 
-            style={{
-              data: {
-                fill: COLORS.stagger,
-                fillOpacity: 0.2,
-                stroke: COLORS.stagger,
-                strokeWidth: 2,
-              },
-            }}
-          />
-          <VictoryScatter data={this._purifyEvents}
-            name="purify-scatter"
-            x="_lastStaggerChange"
-            y={({amount, newPooledDamage}) => amount + newPooledDamage}
-            style={{
-              data: {
-                fill: COLORS.purify,
-              },
-            }}
-          />
-          {this._deathEvents.map((event, index) => (
-            <VictoryLine 
-              key={`death-${index}`}
-              name="death"
-              x={() => event.timestamp} 
-              samples={1}
-              style={{ data: { stroke: COLORS.death } }}
-            />
-            ))}
-          <VictoryAxis 
-            tickFormat={this.formatPlotDuration.bind(this)}
-            tickCount={50}
-            style={{ 
-              tickLabels: { angle: -45 },
-              grid: { stroke: 'none' },
-            }}
-          />
-          <VictoryAxis dependentAxis 
-            tickFormat={formatNumber}
-            style={{
-              grid: { stroke: 'none' },
-            }}
-          />
-          <VictoryLegend 
-            x={350}
-            orientation="horizontal"
-            colorScale={[COLORS.purify, COLORS.stagger, COLORS.hp, COLORS.maxHp]}
-            data={[
-              { name: 'Purifying Brew Cast' },
-              { name: 'Stagger Pool', symbol: { type: 'minus' } }, 
-              { name: 'Hit Points', symbol: { type: 'minus' } },
-              { name: 'Max Hit Points', symbol: { type: 'minus' } },
-            ]}
-            borderComponent={<Border width={0} />}
-          />
-        </VictoryChart>
+      <div className="graph-container">
+        <StaggerGraph 
+          startTime={this.owner.fight.start_time}
+          stagger={stagger} 
+          hp={hp} 
+          maxHp={maxHp} 
+          purifies={purifies}
+          deaths={deaths} />
       </div>
     );
   }
@@ -244,7 +217,7 @@ class StaggerPoolGraph extends Analyzer {
       render: () => (
         <Tab>
           {this.plot()}
-          <div style={{ paddingLeft: '1em', paddingRight: '1em' }}>
+          <div style={{ paddingLeft: '1em' }}>
             Damage you take is placed into a <em>pool</em> by <SpellLink id={SPELLS.STAGGER.id} />. This damage is then removed by the damage-over-time component of <SpellLink id={SPELLS.STAGGER.id} /> or by <SpellLink id={SPELLS.PURIFYING_BREW.id} /> (or other sources of purification). This plot shows the amount of damage pooled over the course of the fight.
           </div>
         </Tab>
