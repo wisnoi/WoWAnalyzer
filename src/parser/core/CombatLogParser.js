@@ -65,7 +65,8 @@ import GiftOfTheNaaru from '../shared/modules/racials/draenei/GiftOfTheNaaru';
 import MightOfTheMountain from '../shared/modules/racials/dwarf/MightOfTheMountain';
 import Stoneform from '../shared/modules/racials/dwarf/Stoneform';
 
-// Shared Buffs
+// Spells
+import Bloodlust from '../shared/modules/spells/Bloodlust';
 import VantusRune from '../shared/modules/spells/VantusRune';
 // BFA
 import GildedLoaFigurine from '../shared/modules/items/bfa/GildedLoaFigurine';
@@ -139,7 +140,7 @@ import EventEmitter from './modules/EventEmitter';
 import EventFilter from './EventFilter';
 
 // This prints to console anything that the DI has to do
-const debugDependencyInjection = false;
+const debugDependencyInjection = true;
 
 class CombatLogParser {
   static abilitiesAffectedByHealingIncreases = [];
@@ -180,12 +181,15 @@ class CombatLogParser {
     spellHistory: SpellHistory,
     globalCooldown: GlobalCooldown,
     manaValues: ManaValues,
-    vantusRune: VantusRune,
     distanceMoved: DistanceMoved,
     timelineBuffEvents: TimelineBuffEvents,
     deathRecapTracker: DeathRecapTracker,
 
     critEffectBonus: CritEffectBonus,
+
+    // Spells
+    bloodlust: Bloodlust,
+    vantusRune: VantusRune,
 
     // Tabs
     characterTab: CharacterTab,
@@ -413,28 +417,33 @@ class CombatLogParser {
       if (!moduleConfig) {
         return;
       }
-      const [moduleClass, options] = this._getModuleClass(moduleConfig);
-      const [availableDependencies, missingDependencies] = this._resolveDependencies(moduleClass.dependencies);
-      const hasMissingDependency = missingDependencies.length === 0;
+      try {
+        const [moduleClass, options] = this._getModuleClass(moduleConfig);
+        const [availableDependencies, missingDependencies] = this._resolveDependencies(moduleClass.dependencies);
+        const hasMissingDependency = missingDependencies.length === 0;
 
-      if (hasMissingDependency) {
-        if (debugDependencyInjection) {
-          if (Object.keys(availableDependencies).length === 0) {
-            console.log('Loading', moduleClass.name);
-          } else {
-            console.log('Loading', moduleClass.name, 'with dependencies:', Object.keys(availableDependencies));
+        if (hasMissingDependency) {
+          if (debugDependencyInjection) {
+            if (Object.keys(availableDependencies).length === 0) {
+              console.log('Loading', moduleClass.name);
+            } else {
+              console.log('Loading', moduleClass.name, 'with dependencies:', Object.keys(availableDependencies));
+            }
           }
+          // The priority goes from lowest (most important) to highest, seeing as modules are loaded after their dependencies are loaded, just using the count of loaded modules is sufficient.
+          const priority = Object.keys(this._modules).length;
+          this.loadModule(moduleClass, {
+            ...options,
+            ...availableDependencies,
+            priority,
+          }, desiredModuleName);
+        } else {
+          debugDependencyInjection && console.warn(moduleClass.name, 'could not be loaded, missing dependencies:', missingDependencies.map(d => d.name));
+          failedModules.push(desiredModuleName);
         }
-        // The priority goes from lowest (most important) to highest, seeing as modules are loaded after their dependencies are loaded, just using the count of loaded modules is sufficient.
-        const priority = Object.keys(this._modules).length;
-        this.loadModule(moduleClass, {
-          ...options,
-          ...availableDependencies,
-          priority,
-        }, desiredModuleName);
-      } else {
-        debugDependencyInjection && console.warn(moduleClass.name, 'could not be loaded, missing dependencies:', missingDependencies.map(d => d.name));
-        failedModules.push(desiredModuleName);
+      } catch (err) {
+        console.log(desiredModuleName, ':', moduleConfig);
+        throw new Error(`Failed to load module named ${desiredModuleName}. Error: ${err.message}`);
       }
     });
 

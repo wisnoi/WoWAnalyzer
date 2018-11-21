@@ -1,7 +1,7 @@
 import ITEMS from 'common/ITEMS';
 import { formatNumber } from 'common/format';
 import Analyzer from 'parser/core/Analyzer';
-import BLOODLUST_BUFFS from 'game/BLOODLUST_BUFFS';
+import { BUFFS as BLOODLUST_BUFFS } from 'parser/shared/modules/spells/Bloodlust';
 
 const TEAM_COOLDOWN = 600;
 const PERSONAL_COOLDOWN = 300;
@@ -21,14 +21,14 @@ class ShardOfTheExodar extends Analyzer {
 
   on_toPlayer_applybuff(event) {
     const spellId = event.ability.guid;
-    if (BLOODLUST_BUFFS[spellId]) {
+    if (BLOODLUST_BUFFS.includes(spellId)) {
       this.actualCasts += 1;
     }
   }
 
   on_toPlayer_refreshbuff(event) {
     const spellId = event.ability.guid;
-    if (BLOODLUST_BUFFS[spellId]) {
+    if (BLOODLUST_BUFFS.includes(spellId)) {
       this.actualCasts += 1;
     }
   }
