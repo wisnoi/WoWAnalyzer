@@ -8,7 +8,7 @@ import AlwaysBeCasting from './modules/features/AlwaysBeCasting';
 import CooldownThroughputTracker from './modules/features/CooldownThroughputTracker';
 import SpellUsable from './modules/features/SpellUsable';
 
-import EnrageUptime from './modules/buffdebuff/EnrageUptime';
+import Enrage from './modules/buffdebuff/Enrage';
 
 import FrothingBerserker from './modules/talents/FrothingBerserker';
 
@@ -28,7 +28,7 @@ class CombatLogParser extends CoreCombatLogParser {
     cooldownThroughputTracker: CooldownThroughputTracker,
     spellUsable: SpellUsable,
 
-    enrageUptime: EnrageUptime,
+    enrageUptime: Enrage,
     //frothingBerserkerUptime: FrothingBerserkerUptime,
 
     frothingBerserker: FrothingBerserker,
