@@ -144,7 +144,7 @@ class Abilities extends CoreAbilities {
         castEfficiency: {
           suggestion: true,
           importance: ISSUE_IMPORTANCE.MINOR,
-          extraSuggestion: 'Use it to reduce damage taken for a short period.',
+          extraSuggestion: 'Use it to reduce damage taken for a short period and increase the healing of your Bloodthirst.',
         },
       },
       {
