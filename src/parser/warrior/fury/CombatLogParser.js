@@ -10,7 +10,7 @@ import SpellUsable from './modules/features/SpellUsable';
 
 import EnrageUptime from './modules/buffdebuff/EnrageUptime';
 
-import frothingBerserker from './modules/talents/FrothingBerserker';
+import FrothingBerserker from './modules/talents/FrothingBerserker';
 
 import MissedRampage from './modules/spells/MissedRampage';
 import RampageCancelled from './modules/features/RampageCancelled';
@@ -31,7 +31,7 @@ class CombatLogParser extends CoreCombatLogParser {
     enrageUptime: EnrageUptime,
     //frothingBerserkerUptime: FrothingBerserkerUptime,
 
-    frothingBerserker: frothingBerserker,
+    frothingBerserker: FrothingBerserker,
 
     missedRampage: MissedRampage,
     rampageCancelled: RampageCancelled,
