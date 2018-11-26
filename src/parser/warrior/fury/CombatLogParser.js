@@ -12,7 +12,6 @@ import EnrageUptime from './modules/buffdebuff/EnrageUptime';
 import FrothingBerserkerUptime from './modules/buffdebuff/FrothingBerserkerUptime';
 
 import MissedRampage from './modules/spells/MissedRampage';
-import RampageFrothingBerserker from './modules/features/RampageFrothingBerserker';
 import RampageCancelled from './modules/features/RampageCancelled';
 import AngerManagement from './modules/talents/AngerManagement';
 import FuriousSlashTimesByStacks from './modules/talents/FuriousSlashTimesByStacks';
@@ -32,7 +31,6 @@ class CombatLogParser extends CoreCombatLogParser {
     frothingBerserkerUptime: FrothingBerserkerUptime,
 
     missedRampage: MissedRampage,
-    rampageFrothingBerserker: RampageFrothingBerserker,
     rampageCancelled: RampageCancelled,
     angerManagement: AngerManagement,
     furiousSlashTimesByStacks: FuriousSlashTimesByStacks,
