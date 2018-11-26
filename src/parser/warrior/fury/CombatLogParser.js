@@ -17,6 +17,8 @@ import RampageCancelled from './modules/features/RampageCancelled';
 import AngerManagement from './modules/talents/AngerManagement';
 import FuriousSlashTimesByStacks from './modules/talents/FuriousSlashTimesByStacks';
 import FuriousSlashUptime from './modules/talents/FuriousSlashUptime';
+import SimmeringRage from './modules/azerite/SimmeringRage';
+import EndlessRage from './modules/talents/EndlessRage';
 
 class CombatLogParser extends CoreCombatLogParser {
   static specModules = {
@@ -38,6 +40,9 @@ class CombatLogParser extends CoreCombatLogParser {
     angerManagement: AngerManagement,
     furiousSlashTimesByStacks: FuriousSlashTimesByStacks,
     furiousSlashUptime: FuriousSlashUptime,
+
+    simmeringRage: SimmeringRage,
+    endlessRage: EndlessRage,
 
     // There's no throughput benefit from casting Arcane Torrent on cooldown
     arcaneTorrent: [ArcaneTorrent, { castEfficiency: null }],
