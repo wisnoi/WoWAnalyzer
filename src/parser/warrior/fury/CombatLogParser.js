@@ -20,6 +20,7 @@ import FuriousSlashUptime from './modules/talents/FuriousSlashUptime';
 import SimmeringRage from './modules/azerite/SimmeringRage';
 import EndlessRage from './modules/talents/EndlessRage';
 import Recklessness from './modules/spells/Recklessness';
+import Siegebreaker from './modules/talents/Siegebreaker';
 
 class CombatLogParser extends CoreCombatLogParser {
   static specModules = {
@@ -45,6 +46,7 @@ class CombatLogParser extends CoreCombatLogParser {
     simmeringRage: SimmeringRage,
     endlessRage: EndlessRage,
     recklessness: Recklessness,
+    siegebreaker: Siegebreaker,
 
     // There's no throughput benefit from casting Arcane Torrent on cooldown
     arcaneTorrent: [ArcaneTorrent, { castEfficiency: null }],
